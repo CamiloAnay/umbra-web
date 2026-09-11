@@ -1,0 +1,193 @@
+@import 'tailwindcss';
+
+/*
+  UMBRAL — design tokens, taken from the Claude Design canvas.
+
+  The governing idea: the ground is the light and the shadow is the drawing.
+  Every projected shadow in the page is skewed at the same 58 degrees, as if
+  lit by the four o'clock sun, and is tinted `cast` rather than black.
+*/
+@theme {
+  --color-lime: #e5e2d9; /* lime plaster — dominant ground */
+  --color-model: #f4f3ef; /* model white — alternating sections */
+  --color-cast: #3a4038; /* greenish graphite — every projected shadow */
+  --color-ink: #1c1f1b; /* text */
+  --color-blueprint: #24506b; /* the single accent: measurements, selection, focus */
+
+  --font-display: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Newsreader', ui-serif, Georgia, serif;
+
+  /* Fluid between the two artboards the canvas defines: 390 and 1440. */
+  --text-hero: clamp(3.25rem, 12vw, 10.75rem);
+  --text-hero--line-height: 0.86;
+  --text-section: clamp(2.125rem, 3.6vw, 3.25rem);
+  --text-section--line-height: 1.02;
+  --text-immersive: clamp(2.75rem, 4.6vw, 4.125rem);
+  --text-immersive--line-height: 0.98;
+  --text-figure: clamp(2.875rem, 5.3vw, 4.75rem);
+  --text-figure--line-height: 0.9;
+
+  --text-lead: clamp(1.125rem, 1.5vw, 1.4375rem);
+  --text-lead--line-height: 1.64;
+  --text-prose: clamp(1.0625rem, 1.25vw, 1.21875rem);
+  --text-prose--line-height: 1.72;
+  --text-cota: 0.75rem;
+
+  --spacing-gutter: clamp(1.375rem, 6.6vw, 6rem);
+  --spacing-section: clamp(3.5rem, 8.8vw, 8.25rem);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-lime);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden; /* the page never scrolls sideways, at any width */
+  }
+
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-variation-settings: 'wdth' 125;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  img,
+  svg,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+
+  button,
+  input,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-blueprint);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* The horizontal frame every section shares, so the gutter never drifts. */
+  .frame {
+    width: 100%;
+    max-width: 90rem;
+    margin-inline: auto;
+    padding-inline: var(--spacing-gutter);
+  }
+
+  /* Archivo's width axis, used as a deliberate typographic device. */
+  .w-wide {
+    font-variation-settings: 'wdth' 125;
+  }
+  .w-mid {
+    font-variation-settings: 'wdth' 112;
+  }
+  .w-narrow {
+    font-variation-settings: 'wdth' 100;
+  }
+
+  /* Drafting lettering: measurements, counts and categories. */
+  .cota {
+    font-family: var(--font-display);
+    font-size: var(--text-cota);
+    font-weight: 500;
+    font-variation-settings: 'wdth' 100;
+    color: var(--color-blueprint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+    The projected shadow. Not a box-shadow: a copy of the element's own
+    footprint, sheared to the sun angle used across the whole page.
+  */
+  .cast {
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-end: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--color-cast);
+    transform: skewX(58deg) scaleY(0.3);
+    transform-origin: bottom left;
+    filter: blur(3px);
+    opacity: 0.2;
+    pointer-events: none;
+  }
+
+  /* The 104px column grid of the canvas, drawn faintly inside the gutters. */
+  .grid-lines::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline: var(--spacing-gutter);
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      to right,
+      rgb(28 31 27 / 0.1) 0 1px,
+      transparent 1px 104px
+    );
+  }
+
+  /* Touch carousels: snap without a visible scrollbar. */
+  .snap-row {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .snap-row::-webkit-scrollbar {
+    display: none;
+  }
+  .snap-row > * {
+    scroll-snap-align: start;
+  }
+}
