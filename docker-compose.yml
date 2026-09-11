@@ -1,0 +1,36 @@
+# Brings both services up together for a local walkthrough.
+#
+# It expects the two repositories side by side:
+#
+#   prueba_tecnica/
+#     umbra-api/
+#     umbra-web/     <- run docker compose from here
+#
+# Each service also builds and runs on its own; see the README of either
+# repository. This file only saves the reviewer from starting two terminals.
+services:
+  api:
+    build: ../umbra-api
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: production
+      CORS_ORIGINS: http://localhost:8080
+      ARTIFICIAL_DELAY_MS: 0
+    volumes:
+      # Uploaded photographs outlive the container. Without this they are lost
+      # every time the image is rebuilt.
+      - uploads:/app/uploads
+
+  web:
+    build:
+      context: .
+      args:
+        VITE_API_URL: http://localhost:3001/api/v1
+    ports:
+      - '8080:8080'
+    depends_on:
+      - api
+
+volumes:
+  uploads:

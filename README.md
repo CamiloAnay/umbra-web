@@ -22,7 +22,8 @@ cp .env.example .env
 npm run dev          # http://localhost:5173
 ```
 
-Los dos servicios juntos, desde la carpeta que contiene ambos repositorios:
+Los dos servicios juntos, desde este repositorio. Requiere que `umbra-api` esté
+clonado al lado, como carpeta hermana:
 
 ```bash
 docker compose up --build    # front en :8080, API en :3001
