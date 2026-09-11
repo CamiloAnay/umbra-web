@@ -1,0 +1,43 @@
+# Single-host deployment: both services behind one nginx, on one origin.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# The site answers on port 80. Because nginx also proxies the API, the browser
+# only ever talks to one origin: there is no CORS to configure, and the API is
+# not exposed directly to the internet.
+services:
+  api:
+    build: ../umbra-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      UPLOADS_DIR: /data/uploads
+      # The collections live on the volume too, or every release reverts
+      # whatever was saved through the panel.
+      DATA_DIR: /data/collections
+      ARTIFICIAL_DELAY_MS: 0
+      # Same origin, so the browser never sends a cross-origin request. The
+      # value is kept for the health of the check, not because it is exercised.
+      CORS_ORIGINS: http://localhost
+    volumes:
+      - uploads:/data
+    # Not published: only nginx reaches it, over the compose network.
+    expose:
+      - '3001'
+
+  web:
+    build:
+      context: .
+      args:
+        # Relative, because the API answers under the same host.
+        VITE_API_URL: /api/v1
+      dockerfile: Dockerfile.proxy
+    restart: unless-stopped
+    ports:
+      - '80:8080'
+    depends_on:
+      - api
+
+volumes:
+  uploads:
