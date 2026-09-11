@@ -241,6 +241,18 @@ Problemas encontrados en código generado y cómo los solucioné:
 - **Las escrituras concurrentes se pisaban.** Cada una es un read-modify-write sobre la colección completa, así que diez altas simultáneas dejaban una. Se resolvió con un lock por archivo; hay un test que falla si se desactiva.
 - **Los mensajes de campo faltante salían en inglés.** Cuando un campo no llega, Zod emite un error de tipo con su propio texto y sin el valor recibido, así que hay que recorrer el payload por la ruta del error para distinguir «ausente» de «inválido».
 
+## Despliegue
+
+El procedimiento completo está en [`DEPLOY.md`](./DEPLOY.md). En resumen: en el
+plan gratuito de Render la API se suspende tras 15 minutos y no tiene disco, así
+que **lo que se guarde desde el panel no sobrevive a un reinicio**; con
+`docker compose -f docker-compose.prod.yml up` sobre cualquier máquina con disco,
+sí, y además todo queda en un solo origen sin CORS de por medio.
+
+Cuando la API tarda más de cuatro segundos en responder, la interfaz lo dice en
+pantalla en lugar de quedarse cargando: en el plan gratuito, la primera visita
+después de un rato quieto está esperando a que el servidor despierte.
+
 ## Pendientes
 
 - **El panel no tiene autenticación.** Cualquiera que conozca `/admin` puede escribir. Para un uso real hace falta una sesión y un rol; está fuera del alcance de la prueba y se documenta como límite, no como olvido.

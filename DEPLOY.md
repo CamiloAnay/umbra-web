@@ -1,67 +1,73 @@
 # Despliegue
 
-Dos servicios en dos plataformas: la API como contenedor en Fly.io, el sitio
-como estático en Vercel.
+Hay dos formas de poner esto en línea, y difieren en una cosa: si lo que se
+guarda desde el panel sobrevive.
 
-El orden importa, porque cada uno necesita la dirección del otro.
+| | Persiste | Duerme | Cuesta |
+|---|---|---|---|
+| Render, plan gratuito | No | La API sí, a los 15 min | No |
+| Una máquina con disco | Sí | No | Según el proveedor |
 
-## 1. La API, en Fly.io
+## Opción A — Render, plan gratuito
 
-Desde el repositorio [`umbra-api`](../umbra-api):
+Dos servicios: la API como contenedor, el sitio como estático. El blueprint
+está en `render.yaml`, dentro del repositorio [`umbra-api`](../umbra-api).
+
+1. En Render: **New > Blueprint**, apuntando a `umbra-api`.
+2. Dejar que cree los dos servicios y anotar las dos URL.
+3. Completar las dos variables que quedaron sin valor y volver a desplegar:
+
+   ```
+   umbra-api   CORS_ORIGINS   https://umbra-web.onrender.com
+   umbra-web   VITE_API_URL   https://umbra-api.onrender.com/api/v1
+   ```
+
+   `VITE_API_URL` se incrusta al compilar, así que hay que redesplegar el sitio
+   después de fijarla; cambiarla más tarde obliga a compilar otra vez.
+
+4. Comprobar:
+
+   ```bash
+   curl https://umbra-api.onrender.com/api/v1/health
+   ```
+
+### Qué esperar de este plan
+
+**La API se suspende tras 15 minutos sin tráfico y tarda cerca de un minuto en
+despertar.** La primera visita después de un rato quieto ve las secciones
+cargando; pasados cuatro segundos el sitio lo explica en pantalla en vez de
+quedarse en blanco. El sitio en sí no duerme: es estático y sale de un CDN.
+
+**El plan gratuito no tiene disco.** El sistema de archivos se borra en cada
+reinicio, redespliegue y despertar. Eso significa que **lo que se cree desde
+`/admin` desaparece al reiniciarse**, y las colecciones vuelven a la copia del
+repositorio.
+
+Es un límite del plan, no del servicio: la misma imagen con un disco montado en
+`/data` conserva todo. Para verlo funcionando de punta a punta, la opción B.
+
+## Opción B — Una máquina, con disco
+
+Un solo origen: nginx sirve el sitio y hace de proxy a la API bajo el mismo
+host. No hay CORS que configurar, la API no queda expuesta a internet, y lo que
+se guarda persiste.
 
 ```bash
-fly auth login
-fly launch --no-deploy          # reclama el nombre; ya hay fly.toml
-fly volumes create umbra_uploads --size 1 --region bog
-fly deploy
+git clone https://github.com/CamiloAnay/umbra-api
+git clone https://github.com/CamiloAnay/umbra-web
+cd umbra-web
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-El volumen no es opcional: las fotografías subidas viven ahí, y sin él
-desaparecen en cada despliegue.
+El sitio queda en el puerto 80. Las colecciones y las fotografías viven en un
+volumen: se siembran desde la copia de la imagen la primera vez y sobreviven a
+reconstruirla desde cero.
 
-Anotá el dominio que devuelve, de la forma `https://umbra-api.fly.dev`.
+Sirve igual en local que en cualquier VM. Sobre un servidor con dominio, falta
+añadir TLS —con un proxy delante o `certbot` sobre el nginx del compose.
 
-**La máquina no se suspende.** `auto_stop_machines = false` con
-`min_machines_running = 1` cuesta unos centavos al mes y evita el arranque en
-frío, que es justo lo que no puede pasar mientras alguien mira la landing.
+## Qué queda fuera, en cualquiera de las dos
 
-## 2. El sitio, en Vercel
-
-Desde este repositorio:
-
-```bash
-npx vercel login
-npx vercel link
-npx vercel env add VITE_API_URL production   # https://umbra-api.fly.dev/api/v1
-npx vercel --prod
-```
-
-Vite incrusta `VITE_API_URL` en el bundle al compilar, así que la variable debe
-existir **antes** del despliegue: cambiarla después obliga a volver a compilar.
-
-Anotá el dominio, de la forma `https://umbra-web.vercel.app`.
-
-## 3. Cerrar el círculo
-
-La API sólo acepta peticiones desde los orígenes que conoce, así que hay que
-decirle cuál es el del sitio:
-
-```bash
-# en umbra-api
-fly secrets set CORS_ORIGINS=https://umbra-web.vercel.app
-```
-
-Eso reinicia la máquina. Al terminar:
-
-```bash
-curl https://umbra-api.fly.dev/api/v1/health
-```
-
-y abrir el sitio: si las secciones cargan datos, el círculo está cerrado. Si
-muestran el estado de error, el origen configurado no coincide con el dominio
-real.
-
-## Qué queda fuera
-
-- **El panel no tiene autenticación.** Publicado, `/admin` queda accesible para cualquiera que conozca la ruta. Para un uso real hace falta una sesión y un rol.
-- El lock de escritura es por proceso. Con una sola máquina alcanza; al escalar a varias, dos réplicas sobre el mismo volumen volverían a pisarse.
+- **El panel no tiene autenticación.** Publicado, `/admin` queda accesible para cualquiera que conozca la ruta. Un uso real necesita sesión y rol.
+- El lock de escritura es por proceso. Con una instancia alcanza; al escalar a varias, dos réplicas sobre el mismo volumen volverían a pisarse.
+- Al reemplazar la fotografía de una amenidad, la anterior queda en el volumen sin que nada la referencie.

@@ -31,6 +31,12 @@ export function AsyncBoundary<T>({
       return (
         <div aria-busy="true" aria-live="polite">
           <span className="sr-only">Cargando</span>
+          {state.slow && (
+            <p className="mb-6 max-w-[52ch] border-l-2 border-blueprint py-1 pl-5 text-ink/70">
+              El servidor está despertando. La primera carga después de un rato sin visitas puede
+              tardar cerca de un minuto.
+            </p>
+          )}
           {skeleton}
         </div>
       )

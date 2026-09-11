@@ -10,7 +10,8 @@ import { HttpError } from '../lib/http/HttpError.ts'
  * of an error message, and every consumer is forced to handle all four cases.
  */
 export type AsyncState<T> =
-  | { status: 'loading' }
+  /** `slow` turns true once the wait stops looking like a fast network. */
+  | { status: 'loading'; slow: boolean }
   | { status: 'error'; error: HttpError }
   | { status: 'empty' }
   | { status: 'ready'; data: T }
@@ -20,13 +21,23 @@ type Options<T> = {
   isEmpty?: (data: T) => boolean
 }
 
+/**
+ * How long a read may take before the interface admits something is up.
+ *
+ * The API is deployed on a plan that suspends it after fifteen minutes without
+ * traffic, and waking it takes about a minute. Without this the first visit
+ * after a quiet spell looks like a broken page rather than a cold start, so
+ * past this point the skeletons are joined by an explanation.
+ */
+const SLOW_AFTER_MS = 4000
+
 const defaultIsEmpty = (data: unknown): boolean => Array.isArray(data) && data.length === 0
 
 export function useAsync<T>(
   loader: (signal: AbortSignal) => Promise<T>,
   { isEmpty = defaultIsEmpty }: Options<T> = {},
 ): { state: AsyncState<T>; retry: () => void } {
-  const [state, setState] = useState<AsyncState<T>>({ status: 'loading' })
+  const [state, setState] = useState<AsyncState<T>>({ status: 'loading', slow: false })
   const [attempt, setAttempt] = useState(0)
 
   // The loader is usually an inline arrow, so it is a new function on every
@@ -39,12 +50,18 @@ export function useAsync<T>(
   isEmptyRef.current = isEmpty
 
   const retry = useCallback(() => {
-    setState({ status: 'loading' })
+    setState({ status: 'loading', slow: false })
     setAttempt((current) => current + 1)
   }, [])
 
   useEffect(() => {
     const controller = new AbortController()
+
+    const slowTimer = setTimeout(() => {
+      if (!controller.signal.aborted) {
+        setState((current) => (current.status === 'loading' ? { ...current, slow: true } : current))
+      }
+    }, SLOW_AFTER_MS)
 
     loaderRef
       .current(controller.signal)
@@ -61,7 +78,10 @@ export function useAsync<T>(
         })
       })
 
-    return () => controller.abort()
+    return () => {
+      clearTimeout(slowTimer)
+      controller.abort()
+    }
   }, [attempt])
 
   return { state, retry }
